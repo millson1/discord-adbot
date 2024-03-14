@@ -3,7 +3,7 @@ A discord selfbot that can use multiple tokens to advertise in a channel (For ex
 It can also automatically reply to DM's, and it will only send that DM once to one user.
 
 | **Note:**
-| Automating user accounts is against the Discord ToS. This library is a proof of concept and I cannot recommend using it. Do so at your own risk.
+| Automating user accounts is against the Discord ToS. This is a proof of concept and I cannot recommend using it. Do so at your own risk.
 
 # Usage
 1. Install Python 3.12
