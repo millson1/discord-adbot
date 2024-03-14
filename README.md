@@ -29,5 +29,6 @@ It can also automatically reply to DM's, and it will only send that DM once to o
 4. Edit the discord_selfbot_script.py
    Set your message and the channel you wish to send in (Line 17 and 14, respectively)
    Set the DM respond message (or, if you don't want to use that just remove the on_message handler)
+   Set the channel cooldown in seconds at the bottom of the script
 
 5. Start Bots.py!
