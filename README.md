@@ -8,19 +8,17 @@ It can also automatically reply to DM's, and it will only send that DM once to o
 # Usage
 1. Install Python 3.12
 2. Install Discord.py-self's development version and install additional packages
-   
-.. code:: sh
 
     $ git clone https://github.com/dolfies/discord.py-self
     $ cd discord.py-self
     $ python3 -m pip install -U .[voice]
     $ python3 -m pip install asyncio
+   
 2. Clone this repository
 
-.. code:: sh
-
     $ git clone https://github.com/millson1/discord-adbot
-3. Edit the Bots.py script with these changes:
+   
+4. Edit the Bots.py script with these changes:
    Specify your tokens like this ["token1", "token2", "token3] etc..
    
    Depending on your number of tokens, you can set the launch delay so that the selfbots will
