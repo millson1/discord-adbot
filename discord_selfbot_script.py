@@ -1,91 +1,127 @@
+import os
 import discord
 import sys
 import random
-import time
 import asyncio
-import os
 import json
+from datetime import datetime
 
 if len(sys.argv) != 2:
     print("Usage: python discord_selfbot_script.py <token>")
     sys.exit(1)
 
 TOKEN = sys.argv[1]
-CHANNEL_ID = 910667265760956478  # Set your channel ID
+CHANNEL_ID = 123456789012345678  # Replace with your channel ID
 REPLIED_USERS_FILE = "replied_users.json"
+MESSAGE_DELAY = (50, 200)  # Min, max seconds before replying to DMs
+DM_CHECK_INTERVAL = 60  # Check for new DMs every 60 seconds
 
-def load_replied_users():
-    if os.path.exists(REPLIED_USERS_FILE):
+# Placeholder messages
+messages = [
+    "Placeholder message 1",
+    "Placeholder message 2",
+    "Placeholder message 3"
+]
+
+class SelfBot(discord.Client):
+    def __init__(self):
+        super().__init__()
+        self.replied_users = self.load_replied_users()
+        self.post_task = None
+        self.dm_check_task = None
+        self.lock = asyncio.Lock()
+        self.last_dm_check = datetime.now()
+
+    def load_replied_users(self):
         try:
-            with open(REPLIED_USERS_FILE, 'r') as f:
-                return set(json.load(f))
+            if os.path.exists(REPLIED_USERS_FILE):
+                with open(REPLIED_USERS_FILE, 'r') as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return set(data)
+                    return set()
+            return set()
         except Exception as e:
             print(f"Error loading replied users: {e}")
             return set()
-    else:
-        return set()
 
-def save_replied_users(users):
+    async def save_replied_users(self):
+        try:
+            async with self.lock:
+                with open(REPLIED_USERS_FILE, 'w') as f:
+                    json.dump(list(self.replied_users), f)
+        except Exception as e:
+            print(f"Error saving replied users: {e}")
+
+    async def on_ready(self):
+        print(f'Logged in as {self.user}')
+        self.post_task = self.loop.create_task(self.post_periodically())
+        self.dm_check_task = self.loop.create_task(self.check_dms_periodically())
+
+    async def post_periodically(self):
+        await self.wait_until_ready()
+        while not self.is_closed():
+            try:
+                channel = self.get_channel(CHANNEL_ID)
+                if channel:
+                    await channel.send(random.choice(messages))
+                    print(f"Posted message in {channel.name}")
+            except Exception as e:
+                print(f"Error posting message: {e}")
+            
+            await asyncio.sleep(random.randint(7200, 7400))  # 2 hours-ish
+
+    async def check_dms_periodically(self):
+        await self.wait_until_ready()
+        while not self.is_closed():
+            try:
+                print("Checking DMs...")
+                for channel in self.private_channels:
+                    if isinstance(channel, discord.DMChannel):
+                        async for message in channel.history(limit=20, after=self.last_dm_check):
+                            if message.author != self.user:
+                                await self.handle_dm(message)
+                self.last_dm_check = datetime.now()
+            except Exception as e:
+                print(f"Error checking DMs: {e}")
+            await asyncio.sleep(DM_CHECK_INTERVAL)
+
+    async def on_message(self, message):
+        if message.author == self.user:
+            return
+        
+        if isinstance(message.channel, discord.DMChannel):
+            await self.handle_dm(message)
+
+    async def handle_dm(self, message):
+        user_id = message.author.id
+        async with self.lock:
+            if user_id not in self.replied_users:
+                print(f"New DM from {message.author}")
+                
+                delay = random.randint(*MESSAGE_DELAY)
+                await asyncio.sleep(delay)
+                
+                try:
+                    await message.channel.send("Placeholder reply message")
+                    self.replied_users.add(user_id)
+                    await self.save_replied_users()
+                    print(f"Replied to {message.author}")
+                except Exception as e:
+                    print(f"Failed to reply to {message.author}: {e}")
+            else:
+                print(f"Already replied to {message.author}")
+
+if __name__ == "__main__":
+    bot = SelfBot()
+    
     try:
-        with open(REPLIED_USERS_FILE, 'w') as f:
-            json.dump(list(users), f)
+        bot.run(TOKEN)
+    except KeyboardInterrupt:
+        print("\nBot shutting down...")
     except Exception as e:
-        print(f"Error saving replied users: {e}")
-
-# Just one example message
-messages = [
-    """
-    Java or Bedrock (include version): **Java 1.21**
-    Realm/Server/World (specify which, not a name): **Server**
-    Number of players: **15 currently, room for 5 more**
-    Length of Play Session: **3+ hours**
-    Gametype: **Survival with economy**
-    Language: **English**
-    """
-]
-
-client = discord.Client()
-replied_users = load_replied_users()
-
-@client.event
-async def on_message(message):
-    if isinstance(message.channel, discord.DMChannel) and message.author != client.user:
-        await handle_dm(message)
-
-async def handle_dm(message):
-    global replied_users
-    if message.author.id not in replied_users:
-        replied_users.add(message.author.id)
-        save_replied_users(replied_users)
-        sleep_time = random.randint(50, 80)
-        print(f"Sleeping for {sleep_time} seconds...")
-        await asyncio.sleep(sleep_time)
-        await message.channel.send("Hey! Thanks for the message 🙂")  # Clean reply
-
-async def send_message():
-    try:
-        print("Bot is ready.")
-        channel = client.get_channel(CHANNEL_ID)
-        if channel:
-            print("Channel found.")
-            message = random.choice(messages)
-            print("Sending message:", message)
-            await channel.send(message)
-            print("Message sent.")
-        else:
-            print("Channel not found.")
-    except Exception as e:
-        print("An error occurred:", e)
-
-@client.event
-async def on_ready():
-    try:
-        await send_message()
-        while True:
-            await asyncio.sleep(random.randint(7200, 7400))  # Wait ~2 hours
-            await send_message()
-            print(f"Current Username: {client.user.name}")
-    except Exception as e:
-        print("An error occurred:", e)
-
-client.run(TOKEN)
+        print(f"Critical error: {e}")
+    finally:
+        if bot.loop.is_running():
+            bot.loop.run_until_complete(bot.save_replied_users())
+        input("Press Enter to exit...")
