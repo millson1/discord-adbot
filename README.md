@@ -79,6 +79,7 @@ launch_delay = 40 * 60  # 40 minutes in seconds
 ```bash
 python Bots.py
 ```
+OR use -s argument to launch every bot at once
 
 - On Windows: opens in new terminals
 - On Linux/macOS: uses `screen` if available, otherwise `subprocess`
