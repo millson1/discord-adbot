@@ -44,6 +44,10 @@ PLACEHOLDER ONCE AGAIN
 
 ]
 
+###########
+###########  END OF CONFIGURATION
+###########
+
 # --- Logging Setup ---
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
 log_handler = logging.StreamHandler(sys.stdout)
