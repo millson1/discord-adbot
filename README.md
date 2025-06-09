@@ -1,239 +1,181 @@
-# 💬 discord-adbot (Multi-Instance Selfbot System)
-
-A **Discord selfbot** system designed to use multiple tokens for posting messages in specified channels (e.g., LFG servers) and automatically replying to Direct Messages (DMs). DM replies are sent only once per user, tracked across all bot instances via a shared file, and users are blocked after a successful DM reply.
-
-> ⚠️ **Disclaimer**  
-> Automating user accounts (selfbots) is strictly against [Discord’s Terms of Service](https://discord.com/terms). This project is for **educational use only**. Use it at your own risk — you are solely responsible for any consequences, including account suspension or termination.
-
 ---
+# 🚀 Discord Adbot Manager 🚀
 
-## ✨ Features
+**⚠️ WARNING: Running self-bots is strictly against Discord's Terms of Service and will likely lead to permanent account termination. Use this software at your own risk. The developer of this tool is not responsible for any consequences arising from its misuse. ⚠️**
 
--   **Multi-Token Operation**: Manages and runs multiple Discord user accounts simultaneously.
--   **Automated DM Replies**:
-    -   Sends a configurable reply to new DMs.
-    -   **Shared Replied User Tracking**: Ensures each unique user receives a DM reply only once, even if they message different bots in the system (uses a shared `replied_users.json`).
-    -   **Automatic User Blocking**: Blocks users after successfully replying to their DM.
--   **Configurable Posting Behavior**:
-    -   **Initial Post Staggering**: Each bot instance can delay its *first* post by a configurable, incremental amount, ideal for respecting channel cooldowns when starting multiple bots. This can be disabled per instance.
-    -   **Regular Post Intervals**: Configurable minimum and maximum time between subsequent posts for each bot.
-    -   Customizable list of messages to cycle through.
--   **Robust Operation**:
-    -   **Individual Logging**: Each bot instance logs its activity to a separate file (e.g., `selfbot_instance_0.log`).
-    -   **Launcher Script (`bots.py`)**:
-        -   Easily start, stop, and restart all bot instances.
-        -   Supports sequential or simultaneous launching of bot processes.
-        -   Cross-platform (Windows, Linux, macOS).
-        -   Optional use of `screen` for persistent sessions on Linux/macOS.
--   **Graceful Error Handling**: Attempts to handle common Discord API errors and network issues.
+This project, `discord-adbot` by millson1, provides a robust, multi-instance Discord self-bot manager designed to automate posting promotional messages to a target channel and replying to direct messages (DMs) from users. It features shared state management for replied users across all bot instances, staggered initial posting, and per-instance logging.
 
----
+## ✨ Features ✨
 
-## 🛠️ Setup Instructions
+* **Multi-Instance Support**: Run multiple self-bot instances concurrently using different Discord tokens.
+* **Centralized DM Tracking**: A shared `replied_users_shared.json` file ensures that only one bot instance replies to a given user's DM, preventing duplicate responses and efficiently managing interactions.
+* **Scheduled Posting**: Each bot instance periodically posts messages to a designated channel from a predefined list.
+* **Automated DM Replies**: Bots automatically reply to new DMs with a custom message and then block the user.
+* **Configurable Delays**: Randomize delays for both channel posting and DM replies to mimic human behavior and reduce the risk of detection.
+* **Initial Post Staggering**: Stagger the initial post times of multiple bot instances to avoid all bots posting simultaneously upon startup. This can be enabled or disabled.
+* **Per-Instance Logging**: Each bot instance logs its activities to a dedicated file (`selfbot_instance_X.log`) for easier debugging and monitoring, alongside a global manager log (`bot_manager.log`).
+* **Legacy Process Stopper**: A utility command (`stop-legacy`) to attempt to terminate old, external bot processes that might be running from previous setups (e.g., in `screen` sessions on Linux or Python processes on Windows).
 
-### 1. Install Python
-Ensure you have Python 3.7+ installed (Python 3.12 is recommended).
-[Download Python here](https://www.python.org/downloads/)
+## 🎬 Getting Started 🎬
 
----
+### Prerequisites
 
-### 2. Install Dependencies
-The main dependency is a specific version of `discord.py` that supports selfbots.
+* Python 3.8+
+* `discord.py-self` library (specifically a development version for self-bot functionality)
 
-```bash
-# Clone the discord.py-self repository
-git clone https://github.com/dolfies/discord.py-self
-cd discord.py-self
+### Installation
 
-# Install it (use python or python3, and pip or pip3 as appropriate for your system)
-python -m pip install -U .[voice]
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/millson1/discord-adbot.git
+    cd discord-adbot
+    ```
 
-# Navigate back to your main project directory
-cd ..
-```
-*Note: `asyncio` is a built-in Python library and does not need separate installation via pip.*
+2.  **Install the required `discord.py-self` library (developer version):**
 
----
+    **Crucial Note:** You need a specific "developer" or "self-bot enabled" fork of `discord.py`. The standard `discord.py` library does not support self-bot functionality. You'll typically install it directly from a Git repository.
 
-### 3. Clone This Repo
+    To install the `discord.py-self` dev version, follow these steps:
 
-```bash
-git clone https://github.com/your-username/your-repo-name # Replace with your actual repo URL
-cd your-repo-name # Replace with your actual repo folder name
-```
-
----
-
-## 🔧 Configuration
-
-Configuration is split between the main selfbot script (`discord_selfbot_script.py`) and the launcher script (`bots.py`).
-
-### A) `discord_selfbot_script.py` (The Selfbot Script)
-
-This script contains the core logic for a single bot instance. It is typically launched by `bots.py` for each token.
-
-Key variables to configure within `discord_selfbot_script.py`:
-
-*   **`DISABLE_STAGGERING` (Line ~12, typically controlled by command-line arg)**:
-    *   Set to `True` if the `-r` command-line argument is passed to this script, disabling the initial post stagger for this specific instance.
-*   **`INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS` (Line ~16)**:
-    *   Default: `30 * 60` (30 minutes)
-    *   The delay *between* each bot's *first* post. If bot 0 posts at T, bot 1 will post at T + this value, bot 2 at T + 2 * this value, and so on. This helps respect channel-wide cooldowns when starting many bots.
-*   **`MIN_INITIAL_POST_DELAY_SECONDS` (Line ~19)**:
-    *   Default: `0`
-    *   A small base delay for the very first bot (index 0) or added to all instances if staggering is disabled.
-*   **`TARGET_CHANNEL_ID` (Line ~33)**:
-    *   Example: `123456789012345678`
-    *   The ID of the Discord channel where messages will be posted.
-*   **`REPLIED_USERS_FILE` (Line ~35)**:
-    *   Default: `"replied_users.json"`
-    *   The name of the JSON file used to store IDs of users already replied to. This file is **shared by all instances**.
-*   **`POST_INTERVAL_MIN_SECONDS` (Line ~36)** & **`POST_INTERVAL_MAX_SECONDS` (Line ~37)**:
-    *   Defaults: `7200` (2 hours) for both.
-    *   Minimum and maximum time (in seconds) a bot will wait after posting a message before posting the next one. A random duration between these values is chosen.
-*   **`DM_REPLY_DELAY_MIN_SECONDS` (Line ~38)** & **`DM_REPLY_DELAY_MAX_SECONDS` (Line ~39)**:
-    *   Defaults: `50` and `200` seconds.
-    *   Minimum and maximum delay before replying to a received DM.
-*   **`DM_CHECK_INTERVAL_SECONDS` (Line ~40)**:
-    *   Default: `60` seconds.
-    *   How often the bot periodically checks for DMs (as a backup to the live event).
-*   **`MAX_DM_AGE_DAYS` (Line ~41)**:
-    *   Default: `1` day.
-    *   Only reply to DMs newer than this age.
-*   **`DM_REPLY_MESSAGE` (Line ~42)**:
-    *   Example: `"Hello! Thanks for your message. Check out our community: https://discord.gg/YOUR_INVITE"`
-    *   The message content to send as an automatic DM reply.
-*   **`POST_MESSAGES` (List, starting Line ~45)**:
-    *   A list of messages the bot will cycle through when posting in `TARGET_CHANNEL_ID`.
-    *   Example:
-        ```python
-        POST_MESSAGES = [
-            "Message template 1: Looking for group!",
-            "Message template 2: Join our awesome server!",
-            # Add more messages here
-        ]
+    * **Uninstall any existing `discord.py` or `discord.py-self` installations first:**
+        ```bash
+        pip uninstall discord.py discord.py-self -y
         ```
-*   **`LOG_FILE_NAME` (Line ~80, dynamically set)**:
-    *   Generates unique log files like `selfbot_instance_0.log`, `selfbot_instance_1.log`, etc.
-
-### B) `bots.py` (The Launcher Script)
-
-This script is used to manage and launch multiple instances of `discord_selfbot_script.py`, one for each token you provide.
-
-Key configurations/aspects of `bots.py`:
-
-*   **`tokens` (List, Line ~6)**:
-    *   Add your Discord user tokens to this list.
-    *   **Placeholder Example**:
-        ```python
-        tokens = [
-            "YOUR_TOKEN_1_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-            "YOUR_TOKEN_2_YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
-            "YOUR_TOKEN_3_ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
-        ]
+    * **Install the dev version from a known self-bot fork (replace with the actual fork URL if different):**
+        ```bash
+        pip install git+https://github.com/dolfies/discord.py-self@master
         ```
-*   **`SCRIPT_NAME` (Line ~11)**:
-    *   Default: `"discord_selfbot_script.py"`
-    *   The filename of the main selfbot script. Change this if you rename `discord_selfbot_script.py`.
-*   **`DEFAULT_PROCESS_LAUNCH_DELAY` (Line ~9)**:
-    *   Default: `5` seconds.
-    *   Used if launching processes sequentially (see `-d` argument below). This is the delay between starting each *script process*, not the Discord message posting stagger (which is handled internally by `discord_selfbot_script.py`).
+        *(This URL is an example. Please search for the most current and recommended `discord.py-self` fork if this one is outdated.)*
 
----
+### ⚙️ Configuration ⚙️
 
-## 🚀 Running the Bots
+All configurable parameters are located at the top of the `main.py` (or your script name) file.
 
-It is highly recommended to use `bots.py` to manage your selfbot instances.
+```python
+# --- Unified Configuration ---
+DEFAULT_TOKENS_LIST = [
+    "YOUR_TOKEN_1", # 🔑 Replace with your actual Discord tokens
+    "YOUR_TOKEN_2"
+]
 
-Open your terminal or command prompt in the project directory.
+# For the 'stop-legacy' command, to stop old instances of the separate script
+LEGACY_SCRIPT_NAME = "discord_selfbot_script.py" # Name of your old script if you're stopping legacy processes
 
-**1. Launching Bots:**
+# --- SelfBotClient Configuration (passed to each instance) ---
+TARGET_CHANNEL_ID = 910667265760956478 # 🎯 The ID of the channel where bots will post messages
+REPLIED_USERS_FILE = "replied_users_shared.json" # File to store replied user IDs (shared across instances)
+POST_INTERVAL_MIN_SECONDS = 7200 # ⏰ Minimum delay between posts (in seconds)
+POST_INTERVAL_MAX_SECONDS = 7200 # ⏰ Maximum delay between posts (in seconds)
+DM_REPLY_DELAY_MIN_SECONDS = 50 # 💬 Minimum delay before replying to a DM (in seconds)
+DM_REPLY_DELAY_MAX_SECONDS = 200 # 💬 Maximum delay before replying to a DM (in seconds)
+DM_CHECK_INTERVAL_SECONDS = 60 # 🔎 How often to check for new DMs (in seconds)
+MAX_DM_AGE_DAYS = 1 # 🗑️ Ignore DMs older than this many days
+DM_REPLY_MESSAGE = "https://discord.gg/5eMRJKg4sB - Join for more Information also!" # ✍️ Your DM reply message
 
-*   **To launch all bots sequentially (default, recommended for system stability at startup):**
-    ```bash
-    python bots.py
-    ```
-    This will launch each bot process with a `DEFAULT_PROCESS_LAUNCH_DELAY` (e.g., 5 seconds) between them. The *actual posting stagger* is then controlled by `INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS` within each bot.
+POST_MESSAGES = [
+    # Add your various messages here. The bot will pick one randomly.
+    """
+- Java or Bedrock: __**Java 1.21**__
+- Realm/Server/World: **Server**
+- Number of players:**10+**
+- Length of Play Session: **2h+**
+- Gametype:*** Survival, chill, longterm***
+- Language: **English**
+    """,
+    # ... (more messages) ...
+]
 
-*   **To launch all bot processes simultaneously:**
-    ```bash
-    python bots.py -s
-    # OR
-    python bots.py --simultaneous
-    ```
-    This starts all script processes at nearly the same time. The internal initial post staggering in `discord_selfbot_script.py` will still apply unless disabled.
+# Initial post staggering config (applied if not disabled)
+INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS = 60 * 60 # 60 minutes
+MIN_INITIAL_POST_DELAY_SECONDS = 0 # Base delay for first bot / all bots (if staggering is off)
+```
 
-*   **To specify a custom delay between launching script processes (if not simultaneous):**
-    ```bash
-    python bots.py -d 10
-    # OR
-    python bots.py --delay 10
-    ```
-    This will wait 10 seconds between launching each bot's script process.
+**Key configuration points:**
 
-**2. Restarting Bots:**
+* **`DEFAULT_TOKENS_LIST`**: Replace the placeholder tokens with your actual Discord user tokens. You can add as many as you need. **Each token represents a separate bot instance.**
+* **`TARGET_CHANNEL_ID`**: Set this to the Discord channel ID where you want the bots to post.
+* **`DM_REPLY_MESSAGE`**: Customize the message sent in response to DMs.
+* **`POST_MESSAGES`**: Populate this list with all the different messages your bots should post.
+* Adjust `POST_INTERVAL_MIN_SECONDS`, `POST_INTERVAL_MAX_SECONDS`, `DM_REPLY_DELAY_MIN_SECONDS`, `DM_REPLY_DELAY_MAX_SECONDS`, `DM_CHECK_INTERVAL_SECONDS`, `MAX_DM_AGE_DAYS` to suit your desired behavior and avoid rate limits.
+* `INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS` and `MIN_INITIAL_POST_DELAY_SECONDS` control how bots space out their very first posts when they start up.
 
-*   **To stop all running bot instances and restart them (processes launched simultaneously):**
-    ```bash
-    python bots.py -r
-    # OR
-    python bots.py --restart
-    ```
-    This first attempts to terminate any existing bot processes run by this system and then launches them all anew. The restarted selfbot instances will use their default initial post staggering.
+### ▶️ Running the Bot Manager ▶️
 
-**3. How Initial Post Staggering Works:**
+You can run the bot manager using command-line arguments.
 
-*   Each instance of `discord_selfbot_script.py` is assigned an `INSTANCE_INDEX` (0, 1, 2, ...) by `bots.py`.
-*   The first post from instance `X` will be delayed by `MIN_INITIAL_POST_DELAY_SECONDS + (X * INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS)`.
-*   Example: If `INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS = 1800` (30 minutes) and `MIN_INITIAL_POST_DELAY_SECONDS = 0`:
-    *   Bot 0 posts almost immediately.
-    *   Bot 1 posts ~30 minutes after Bot 0.
-    *   Bot 2 posts ~30 minutes after Bot 1 (i.e., ~60 minutes after Bot 0).
-*   This staggering is useful for channels with strict posting cooldowns (e.g., post once every 2 hours). You can set `INITIAL_POST_STAGGER_PER_INSTANCE_SECONDS` to `ChannelCooldown / NumberOfTokens`.
+#### Start all bots
 
-**4. Disabling Initial Post Staggering for Individual Instances (Manual Launch):**
-
-If you were to run `discord_selfbot_script.py` manually (for testing a single instance), you can disable its initial post staggering using the `-r` flag:
+To start all bot instances defined by your tokens:
 
 ```bash
-python discord_selfbot_script.py "YOUR_TOKEN" 0 -r
+python main.py start
 ```
 
-This `-r` flag for `discord_selfbot_script.py` is *different* from the `-r`/`--restart` flag for `bots.py`.
-Currently, `bots.py` does not automatically pass this `-r` flag to the child scripts. If you want all bots launched by `bots.py` to have their *initial post staggering disabled*, you would need to modify `bots.py` to include the `"-r"` argument when it constructs the command to run `discord_selfbot_script.py`. For example, in `bots.py` within the `launch_scripts` function:
-    ```python
-    # For Linux/macOS:
-    # script_args = [SCRIPT_NAME, token, str(instance_index)] # Original
-    script_args = [SCRIPT_NAME, token, str(instance_index), "-r"] # Modified to disable staggering
+**Example with custom tokens and disabled staggering:**
 
-    # For Windows:
-    # command = f"start \"DiscordBotInst{instance_index}\" /B python {SCRIPT_NAME} \"{token}\" {instance_index}" # Original
-    command = f"start \"DiscordBotInst{instance_index}\" /B python {SCRIPT_NAME} \"{token}\" {instance_index} -r" # Modified
-    ```
-
-**Platform Notes:**
--   On Windows: Bots are launched in new background console windows.
--   On Linux/macOS: Uses `screen` if available (creating sessions like `discord-bot-0`, `discord-bot-1`). You can attach using `screen -r discord-bot-0`. If `screen` is not found, it uses detached subprocesses.
-
----
-
-## 📌 Important Notes
-
--   **Shared `replied_users.json`**: All bot instances read from and write to the same `replied_users.json` file. Ensure file permissions allow this if running bots under different users (not typical for this setup).
--   **Log Files**: Check `selfbot_instance_X.log` files for detailed activity and errors for each bot.
--   **Resource Usage**: Running many selfbots can be resource-intensive. Monitor your system.
--   **Rate Limits**: While the script has delays, aggressive use across many tokens can still lead to rate limits or other actions from Discord.
--   **Account Safety**: Selfbots are inherently risky. Use throwaway accounts that you are prepared to lose. Do not use your main Discord account.
-
----
-
-## 📞 Support / Questions
-
-This project is provided as-is for educational purposes. For bugs or feature suggestions related to the script's functionality, you can open an Issue on the GitHub repository. Community support may be available, but there are no guarantees.
-
----
-
-## 🧪 Educational Purpose Only
-
-This repository and its contents are intended strictly for educational purposes to demonstrate automation concepts with Python and the Discord API (unofficially). Misuse of this code, such as for spamming or violating Discord's ToS, is strongly discouraged and can lead to severe penalties, including permanent account bans. The user assumes all responsibility for their actions.
+```bash
+python main.py start --tokens "token1,token2,token3" --disable-initial-staggering
 ```
+
+**Example with custom staggering delays:**
+
+```bash
+python main.py start --initial-stagger-base-delay 300 --initial-stagger-per-instance 3600
+```
+
+#### Stop legacy processes
+
+If you were previously running self-bots using a different script or method (e.g., in `screen` sessions), you can try to stop those processes:
+
+```bash
+python main.py stop-legacy
+```
+
+You can specify the name of the legacy script if it's different from the default `discord_selfbot_script.py`:
+
+```bash
+python main.py stop-legacy --legacy-script-name "my_old_bot.py"
+```
+
+### 🧩 Command-line Arguments 🧩
+
+* `--tokens "token1,token2"`: (Optional) Comma-separated list of Discord tokens. If provided, this overrides the `DEFAULT_TOKENS_LIST` in the script.
+* `--disable-initial-staggering`: (Optional) A flag to disable the initial delay staggering for bot posts. All bots will attempt their first post after the `initial-stagger-base-delay`.
+* `--initial-stagger-base-delay <seconds>`: (Optional) Sets the base delay (in seconds) before the first bot (or all bots if staggering is disabled) makes its initial post. Default is 0.
+* `--initial-stagger-per-instance <seconds>`: (Optional) Sets the additional delay (in seconds) added per bot instance for their first post. This creates the "staggering" effect. Default is 3600 (1 hour).
+* `--manager-log-file <filename>`: (Optional) Specifies the file to log BotManager specific messages. Default is `bot_manager.log`.
+* `start`: Command to start and run the self-bots.
+* `stop-legacy`: Command to attempt to stop previously running bot processes.
+    * `--legacy-script-name <filename>`: (Optional, used with `stop-legacy`) The filename of the legacy script to target for termination. Default is `discord_selfbot_script.py`.
+
+## 📜 Logging 📜
+
+* **`bot_manager.log`**: Contains logs from the central `BotManager`, including startup, shutdown, and shared state management.
+* **`selfbot_instance_X.log`**: Each bot instance creates its own log file (e.g., `selfbot_instance_0.log`, `selfbot_instance_1.log`), detailing its specific actions, DMs received, and posts made.
+* Console output will also show relevant messages from both the manager and individual bot instances.
+
+## 🧠 How it Works 🧠
+
+1.  **`main_app()`**: Parses command-line arguments and initializes the `BotManager`.
+2.  **`BotManager`**:
+    * Loads and saves the `replied_users_shared.json` file, which acts as a global blacklist for users who have already received a DM reply from *any* bot instance.
+    * Creates and manages `SelfBotClient` instances, passing them configuration and a reference to itself for shared state management.
+3.  **`SelfBotClient` (inherits `discord.Client`)**:
+    * Each instance connects to Discord using its provided token.
+    * `on_ready()`: Initiates two background tasks: `check_dms_periodically()` and `post_periodically()`.
+    * `on_message()`: If a DM is received, it triggers `process_dm()`.
+    * `post_periodically()`: Selects a random message from `POST_MESSAGES` and sends it to `TARGET_CHANNEL_ID` at a random interval. Includes initial staggering logic.
+    * `check_dms_periodically()`: Iterates through recent DMs. If a new DM is found from a user not in the shared `replied_users` list, it calls `process_dm()`.
+    * `process_dm()`:
+        * Acquires a per-user lock (local to the instance) to prevent multiple concurrent processing attempts for the same user by *that specific instance*.
+        * Checks the global `replied_users` list (via `BotManager`) to see if any bot has already replied.
+        * If not replied and DM is within `MAX_DM_AGE_DAYS`, it waits a random `DM_REPLY_DELAY` and sends the `DM_REPLY_MESSAGE`.
+        * Upon successful sending, it adds the user's ID to the shared `replied_users` list (via `BotManager`) and attempts to block the user.
+    * Handles various Discord API exceptions (Forbidden, HTTPException) with appropriate logging and retry logic.
+
+## 🚨 Important Considerations 🚨
+
+* **Discord ToS**: As stated, using self-bots is against Discord's Terms of Service. Your account is at risk of being banned. Proceed with extreme caution.
+* **Rate Limits**: The code includes random delays and some basic retry logic for HTTP errors to mitigate Discord API rate limits, but aggressive usage can still trigger them. Be mindful of the `POST_INTERVAL` and `DM_REPLY_DELAY` settings.
+* **Error Handling**: Comprehensive error handling is implemented for network issues, permissions, and other common problems, ensuring the bots are resilient and log critical information.
+* **Process Management**: For long-term operation, especially on Linux, consider using tools like `screen`, `tmux`, or `systemd` to keep the Python script running in the background. Note that this project includes a `stop-legacy` command to help manage older, simpler `screen` or `python` processes.
